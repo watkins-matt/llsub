@@ -27,7 +27,7 @@ translation of the original audio. It should not be a computer generated transcr
     ```bash
     python3 -m venv llsub-env
     source llsub-env/bin/activate  # On Windows, use `llsub-env\Scripts\activate`
-    pip install pysubs2 deep_translator tqdm
+    pip install -r requirements.txt
     ```
 
 ### As a Python Package
