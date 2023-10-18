@@ -1,0 +1,18 @@
+select = [
+    "E",   # pycodestyle
+    "F",   # Pyflakes
+    "W",   # pycodestyle
+    "B",   # bugbear
+    "PL",  # Pylint
+    "S",   # bandit
+    "C90", # mccabe
+    "N",   # pep8-naming
+    "I",   # isort
+]
+
+# Black defaults to a line length of 88 characters
+line-length = 88
+
+# W293: Blank line contains whitespace (too many false positives
+#       while typing, formatter will remove any whitespace as necessary)
+ignore = ["W293"]
