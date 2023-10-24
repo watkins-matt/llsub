@@ -195,27 +195,33 @@ class SRTFile:
             original_lines = original_event.text.split("\\N")
             translated_lines = translated_event.text.split("\\N")
 
+            # Initialize an empty string to hold the final interleaved text
+            final_interleaved_text = ""
+
             # Check if the number of lines is the same in both texts
             if len(original_lines) == len(translated_lines):
                 # If the line count is matched, interleave the lines
-                interleaved_lines = [
-                    f"{original_line}\n({translated_line})"
-                    for original_line, translated_line in zip(
-                        original_lines, translated_lines, strict=True
+                for original_line, translated_line in zip(
+                    original_lines, translated_lines, strict=True
+                ):
+                    # Note that pysubs2 won't generate the extra line break with a \n
+                    # only, which is why we use \r\n here
+                    final_interleaved_text += (
+                        f"{original_line}\n({translated_line})\r\n\r\n"
                     )
-                ]
             else:
                 # If the line count is mismatched, list original lines first,
-                # then translated lines
-                interleaved_lines = original_lines + [
-                    f"({line})" for line in translated_lines
-                ]
+                # then translated lines. \r\n is required for the extra line break.
+                final_interleaved_text += "\n".join(original_lines) + "\r\n\r\n"
+                final_interleaved_text += "\n".join(
+                    [f"({line})" for line in translated_lines]
+                )
 
             # Create the new subtitle event and add it to the merged file
             merged_event = pysubs2.SSAEvent()
             merged_event.start = original_event.start
             merged_event.end = original_event.end
-            merged_event.text = "\n".join(interleaved_lines)
+            merged_event.plaintext = final_interleaved_text
             merged_ssa_file.append(merged_event)
 
         return merged_ssa_file
@@ -259,7 +265,12 @@ def parse_arguments():
         action="store_true",
         help="Only translate the subtitles without merging.",
     )
-
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force overwrite of existing dual language subtitles if they exist.",
+    )
     return parser.parse_args()
 
 
@@ -290,11 +301,16 @@ def main():
     if not args.translate_only:
         # Check to see if the dual language subtitles exist
         language_id = f"{srt_file.language}-{target_language}"
-        if os.path.exists(srt_file.get_file_path_for_language(language_id)):
+        dual_lang_file_path = srt_file.get_file_path_for_language(language_id)
+
+        if os.path.exists(dual_lang_file_path) and not args.force:
             logger.error("Dual language subtitles already exist. No work to perform.")
             sys.exit(1)
+        elif os.path.exists(dual_lang_file_path) and args.force:
+            logger.info("Forcing overwrite of existing dual language subtitles.")
 
         logger.info("Generating dual language subtitles...")
+
         try:
             # Merge the original srt_file and the translated_srt_file
             merged_srt_file = srt_file.generate_merged_subtitles(
