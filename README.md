@@ -64,7 +64,7 @@ python llsub.py [-h] [-f] [--translate-only] input_file [target_language]
 ### Arguments
 
 - `--translate-only`: Translate the input file only, do not generate merged subtitles.
-- - `-f, --force`: Forcibly overwrites an existing dual language subtitle file if present.
+- `-f, --force`: Forcibly overwrites an existing dual language subtitle file if present.
 - `input_file`: Path to the input SRT file. Required.
 - `target_language`: Target language for translation. Default is `en`.
 
