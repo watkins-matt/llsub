@@ -193,7 +193,11 @@ class SRTFile:
             self.subs, translated_srt_file.subs, strict=True
         ):
             original_lines = original_event.text.split("\\N")
-            translated_lines = translated_event.text.split("\\N")
+
+            # Remove empty lines from translated_lines
+            translated_lines = [
+                line for line in translated_event.text.split("\\N") if line.strip()
+            ]
 
             # Initialize an empty string to hold the final interleaved text
             final_interleaved_text = ""
