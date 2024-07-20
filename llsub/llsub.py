@@ -128,13 +128,17 @@ class SRTFile:
         """
         text_blocks = []
         current_text_block = ""
+        seperator = "\n\n"
 
         for event in self.subs:
-            if len(current_text_block) + len(event.text) < max_characters:
-                current_text_block += event.text + "\n\n"
+            if (
+                len(current_text_block) + len(event.text) + len(seperator)
+                < max_characters
+            ):
+                current_text_block += event.text + seperator
             else:
                 text_blocks.append(current_text_block)
-                current_text_block = event.text + "\n\n"
+                current_text_block = event.text + seperator
         text_blocks.append(current_text_block)  # Add the last block
 
         return text_blocks
