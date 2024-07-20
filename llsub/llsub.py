@@ -128,17 +128,17 @@ class SRTFile:
         """
         text_blocks = []
         current_text_block = ""
-        seperator = "\n\n"
+        separator = "\n\n"
 
         for event in self.subs:
             if (
-                len(current_text_block) + len(event.text) + len(seperator)
+                len(current_text_block) + len(event.text) + len(separator)
                 < max_characters
             ):
-                current_text_block += event.text + seperator
+                current_text_block += event.text + separator
             else:
                 text_blocks.append(current_text_block)
-                current_text_block = event.text + seperator
+                current_text_block = event.text + separator
         text_blocks.append(current_text_block)  # Add the last block
 
         return text_blocks
@@ -252,14 +252,14 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(
         description=(
-            "Creates bilingual (language learner) subtitles from an original "
-            "translated SRT file."
+            "Creates bilingual (language learner) subtitles from original translated SRT file(s)."
         )
     )
     parser.add_argument(
-        "input_file",
+        "input_files",
         type=str,
-        help="Input SRT file",
+        nargs="+",
+        help="One or more input SRT files.",
     )
     parser.add_argument(
         "target_language",
@@ -282,56 +282,79 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def get_filename(file_path):
+    return os.path.basename(file_path)
+
+
+def process_file(input_file, target_language, translate_only, force):
+    filename = get_filename(input_file)
+    try:
+        srt_file = SRTFile(input_file)
+
+        if srt_file.language == target_language:
+            logger.warning(
+                f"Skipping {filename}: Target language '{target_language}' is the same as the "
+                f"source language '{srt_file.language}'. No work to perform."
+            )
+            return
+
+        # Check if translated subtitles already exist
+        translated_file_path = srt_file.get_file_path_for_language(target_language)
+        if os.path.exists(translated_file_path):
+            logger.info(f"{filename}: Translated subtitles already exist. Loading...")
+            translated_srt_file = SRTFile(translated_file_path)
+        # We need to generate the translated subtitle file
+        else:
+            logger.info(f"{filename}: Generating translated subtitles...")
+            translated_srt_file = srt_file.generate_translated_subtitles(
+                target_language
+            )
+
+        # We are generating the dual language subtitles, not just translating
+        if not translate_only:
+            # Check to see if the dual language subtitles exist
+            language_id = f"{srt_file.language}-{target_language}"
+            dual_lang_file_path = srt_file.get_file_path_for_language(language_id)
+
+            if os.path.exists(dual_lang_file_path) and not force:
+                logger.warning(
+                    f"Skipping {filename}: Dual language subtitles already exist."
+                )
+                return
+            elif os.path.exists(dual_lang_file_path) and force:
+                logger.info(
+                    f"{filename}: Forcing overwrite of existing dual language subtitles."
+                )
+
+            logger.info(f"{filename}: Generating dual language subtitles...")
+
+            try:
+                # Merge the original srt_file and the translated_srt_file
+                merged_srt_file = srt_file.generate_merged_subtitles(
+                    translated_srt_file, language_id
+                )
+                logger.info(
+                    f"{filename}: Generated dual language subtitles: {get_filename(merged_srt_file.file_path)}."
+                )
+            # There was a mismatch in the number of events in the original and translated
+            except ValueError as e:
+                logger.error(f"{filename}: {e}")
+
+    except Exception as e:
+        logger.error(f"Error processing {filename}: {e}")
+
+
 def main():
     args = parse_arguments()
 
-    srt_file = SRTFile(args.input_file)
-    target_language = args.target_language
-
-    if srt_file.language == target_language:
+    if not args.input_files:
         logger.error(
-            f"Error: Target language '{target_language}' is the same as the "
-            f"source language '{srt_file.language}'. No work to perform."
+            "No input files provided. Please check your file path(s) and try again."
         )
         sys.exit(1)
 
-    # Check if translated subtitles already exist
-    translated_file_path = srt_file.get_file_path_for_language(target_language)
-    if os.path.exists(translated_file_path):
-        logger.info("Translated subtitles already exist. Loading...")
-        translated_srt_file = SRTFile(translated_file_path)
-    # We need to generate the translated subtitle file
-    else:
-        logger.info("Generating translated subtitles...")
-        translated_srt_file = srt_file.generate_translated_subtitles(target_language)
-
-    # We are generating the dual language subtitles, not just translating
-    if not args.translate_only:
-        # Check to see if the dual language subtitles exist
-        language_id = f"{srt_file.language}-{target_language}"
-        dual_lang_file_path = srt_file.get_file_path_for_language(language_id)
-
-        if os.path.exists(dual_lang_file_path) and not args.force:
-            logger.error("Dual language subtitles already exist. No work to perform.")
-            sys.exit(1)
-        elif os.path.exists(dual_lang_file_path) and args.force:
-            logger.info("Forcing overwrite of existing dual language subtitles.")
-
-        logger.info("Generating dual language subtitles...")
-
-        try:
-            # Merge the original srt_file and the translated_srt_file
-            merged_srt_file = srt_file.generate_merged_subtitles(
-                translated_srt_file, language_id
-            )
-            logger.info(
-                f"Generated dual language subtitles: {merged_srt_file.file_path}."
-            )
-
-        # There was a mismatch in the number of events in the original and translated
-        except ValueError as e:
-            logger.error(e)
-            sys.exit(1)
+    for input_file in args.input_files:
+        process_file(input_file, args.target_language, args.translate_only, args.force)
 
 
 if __name__ == "__main__":
